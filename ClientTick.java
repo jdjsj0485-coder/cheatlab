@@ -12,78 +12,107 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.MovementInputUpdateEvent;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
+/**
+ * Все обработчики идут с приоритетом LOWEST: они выполняются ПОСЛЕ других модов,
+ * поэтому последнее слово в движении остаётся за CheatLab.
+ * Каждая функция в своём try/catch, чтобы сбой одной не ломал остальные.
+ */
 @Mod.EventBusSubscriber(modid = CheatLab.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
 public class ClientTick {
     private static Boat lastBoat;
 
-    @SubscribeEvent
-    public static void onLogin(ClientPlayerNetworkEvent.LoggingIn e) {
-        e.getPlayer().displayClientMessage(Component.literal(
-                "[CheatLab] loaded. Right Shift = menu, R = fly, G = ESP, B = boat fly"), false);
-    }
-
-    // Пока включён Fly, обнуляем обычное управление, чтобы движение шло только от мода
-    @SubscribeEvent
-    public static void onInput(MovementInputUpdateEvent e) {
-        if (Modules.fly && !e.getEntity().isPassenger()) {
-            Input in = e.getInput();
-            in.forwardImpulse = 0;
-            in.leftImpulse = 0;
-            in.jumping = false;
-            in.shiftKeyDown = false;
-            in.up = false;
-            in.down = false;
-            in.left = false;
-            in.right = false;
+    private static void safe(String name, Runnable r) {
+        try {
+            r.run();
+        } catch (Throwable t) {
+            Modules.error(name, t);
         }
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
+    public static void onLogin(ClientPlayerNetworkEvent.LoggingIn e) {
+        safe("login", () -> e.getPlayer().displayClientMessage(Component.literal(
+                "[CheatLab] loaded. Right Shift = menu, R = fly, G = ESP, B = boat fly, X = X-Ray"), false));
+    }
+
+    // Пока включён Fly, обнуляем обычное управление, чтобы движение шло только от мода
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
+    public static void onInput(MovementInputUpdateEvent e) {
+        safe("input", () -> {
+            if (Modules.fly && !e.getEntity().isPassenger()) {
+                Input in = e.getInput();
+                in.forwardImpulse = 0;
+                in.leftImpulse = 0;
+                in.jumping = false;
+                in.shiftKeyDown = false;
+                in.up = false;
+                in.down = false;
+                in.left = false;
+                in.right = false;
+            }
+        });
+    }
+
+    @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
     public static void onTick(TickEvent.ClientTickEvent e) {
         if (e.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer p = mc.player;
         if (p == null || mc.level == null) return;
-        Options o = mc.options;
 
+        safe("keys", () -> keys(mc));
+        safe("fly", () -> fly(mc, p));
+        safe("esp", () -> esp(mc, p));
+        safe("boat", () -> boat(mc, p));
+        safe("xray", () -> Xray.tick(mc, p));
+    }
+
+    private static void keys(Minecraft mc) {
         while (ModEvents.MENU.consumeClick()) {
             if (mc.screen == null) mc.setScreen(new CheatMenuScreen());
         }
         while (ModEvents.FLY.consumeClick())  Modules.toggleFly();
         while (ModEvents.ESP.consumeClick())  Modules.toggleEsp();
         while (ModEvents.BOAT.consumeClick()) Modules.toggleBoat();
+        while (ModEvents.XRAY.consumeClick()) Modules.toggleXray();
+        while (ModEvents.BOAT_FASTER.consumeClick()) Modules.adjustBoat(0.1);
+        while (ModEvents.BOAT_SLOWER.consumeClick()) Modules.adjustBoat(-0.1);
+    }
 
-        // ---- Fly: двигаем игрока напрямую ----
-        if (Modules.fly && !p.isPassenger()) {
-            double f = (o.keyUp.isDown() ? 1 : 0) - (o.keyDown.isDown() ? 1 : 0);
-            double s = (o.keyLeft.isDown() ? 1 : 0) - (o.keyRight.isDown() ? 1 : 0);
-            double yaw = Math.toRadians(p.getYRot());
-            double sin = Math.sin(yaw), cos = Math.cos(yaw);
-            double mx = -sin * f + cos * s;
-            double mz = cos * f + sin * s;
-            double len = Math.sqrt(mx * mx + mz * mz);
-            if (len > 0) {
-                mx = mx / len * Modules.flySpeed;
-                mz = mz / len * Modules.flySpeed;
-            }
-            double my = 0;
-            if (o.keyJump.isDown()) my += Modules.flySpeed;
-            if (o.keyShift.isDown()) my -= Modules.flySpeed;
-            p.setDeltaMovement(mx, my, mz);
-            p.fallDistance = 0;
+    private static void fly(Minecraft mc, LocalPlayer p) {
+        if (!Modules.fly || p.isPassenger()) return;
+        Options o = mc.options;
+        double f = (o.keyUp.isDown() ? 1 : 0) - (o.keyDown.isDown() ? 1 : 0);
+        double s = (o.keyLeft.isDown() ? 1 : 0) - (o.keyRight.isDown() ? 1 : 0);
+        double yaw = Math.toRadians(p.getYRot());
+        double sin = Math.sin(yaw), cos = Math.cos(yaw);
+        double mx = -sin * f + cos * s;
+        double mz = cos * f + sin * s;
+        double len = Math.sqrt(mx * mx + mz * mz);
+        if (len > 0) {
+            mx = mx / len * Modules.flySpeed;
+            mz = mz / len * Modules.flySpeed;
         }
+        double my = 0;
+        if (o.keyJump.isDown()) my += Modules.flySpeed;
+        if (o.keyShift.isDown()) my -= Modules.flySpeed;
+        p.setDeltaMovement(mx, my, mz);
+        p.fallDistance = 0;
+    }
 
-        // ---- ESP: подсветка игроков ----
-        if (Modules.esp) {
-            for (Player other : mc.level.players()) {
-                if (other != p) other.setGlowingTag(true);
-            }
+    private static void esp(Minecraft mc, LocalPlayer p) {
+        if (!Modules.esp) return;
+        for (Player other : mc.level.players()) {
+            if (other != p) other.setGlowingTag(true);
         }
+    }
 
-        // ---- Boat Fly ----
+    private static void boat(Minecraft mc, LocalPlayer p) {
+        Options o = mc.options;
         if (Modules.boatFly && p.getVehicle() instanceof Boat boat) {
             lastBoat = boat;
             boat.setNoGravity(true);
@@ -98,6 +127,7 @@ public class ClientTick {
                 z = Math.cos(yaw) * Modules.boatSpeed;
             }
             boat.setDeltaMovement(x, y, z);
+            if (p.tickCount % 4 == 0) Modules.showBoatSpeed(); // скорость на экране, пока летим
         } else if (lastBoat != null) {
             lastBoat.setNoGravity(false);
             lastBoat = null;

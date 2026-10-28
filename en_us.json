@@ -3,5 +3,8 @@
   "key.cheatlab.menu": "Open Menu",
   "key.cheatlab.fly": "Toggle Fly",
   "key.cheatlab.esp": "Toggle Player ESP",
-  "key.cheatlab.boat": "Toggle Boat Fly"
+  "key.cheatlab.boat": "Toggle Boat Fly",
+  "key.cheatlab.xray": "Toggle X-Ray",
+  "key.cheatlab.boat_faster": "Boat Faster",
+  "key.cheatlab.boat_slower": "Boat Slower"
 }

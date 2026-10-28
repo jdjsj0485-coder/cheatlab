@@ -1,6 +1,7 @@
 package com.example.cheatlab;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -15,7 +16,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class CheatMenuScreen extends Screen {
-    private static final int W = 190, H = 186;
+    private static final int W = 190, H = 298;
     private static int px = -1, py = -1; // позиция окна запоминается
 
     private record Entry(AbstractWidget w, int dx, int dy) {}
@@ -24,14 +25,15 @@ public class CheatMenuScreen extends Screen {
     private boolean dragging;
     private int dragDX, dragDY;
     private KeyMapping listening;
-    private Button flyBtn, espBtn, boatBtn, flyKey, espKey, boatKey, menuKey;
+    private Button flyBtn, espBtn, boatBtn, xrayBtn, flyKey, espKey, boatKey, xrayKey;
+    private final Button[] oreBtns = new Button[Xray.ORES.length];
 
     public CheatMenuScreen() {
         super(Component.literal("CheatLab"));
     }
 
-    private Button btn(int w, String text, Button.OnPress press) {
-        return Button.builder(Component.literal(text), press).bounds(0, 0, w, 20).build();
+    private Button btn(int w, int h, String text, Button.OnPress press) {
+        return Button.builder(Component.literal(text), press).bounds(0, 0, w, h).build();
     }
 
     private <T extends AbstractWidget> T put(T w, int dx, int dy) {
@@ -39,10 +41,6 @@ public class CheatMenuScreen extends Screen {
         w.setX(px + dx);
         w.setY(py + dy);
         return addRenderableWidget(w);
-    }
-
-    private static double round1(double v) {
-        return Math.round(v * 10.0) / 10.0;
     }
 
     @Override
@@ -54,22 +52,38 @@ public class CheatMenuScreen extends Screen {
         }
         clampPos();
 
-        flyBtn  = put(btn(112, "", b -> { Modules.toggleFly();  refresh(); }), 6, 22);
-        flyKey  = put(btn(60, "", b -> listen(ModEvents.FLY)), 124, 22);
+        // Fly
+        flyBtn = put(btn(112, 20, "", b -> { Modules.toggleFly(); refresh(); }), 6, 22);
+        flyKey = put(btn(60, 20, "", b -> listen(ModEvents.FLY)), 124, 22);
+        put(btn(20, 20, "-", b -> Modules.adjustFly(-0.1)), 6, 46);
+        put(btn(20, 20, "+", b -> Modules.adjustFly(0.1)), 164, 46);
 
-        put(btn(20, "-", b -> Modules.flySpeed = Mth.clamp(round1(Modules.flySpeed - 0.1), 0.1, 3.0)), 6, 46);
-        put(btn(20, "+", b -> Modules.flySpeed = Mth.clamp(round1(Modules.flySpeed + 0.1), 0.1, 3.0)), 164, 46);
+        // ESP
+        espBtn = put(btn(112, 20, "", b -> { Modules.toggleEsp(); refresh(); }), 6, 70);
+        espKey = put(btn(60, 20, "", b -> listen(ModEvents.ESP)), 124, 70);
 
-        espBtn  = put(btn(112, "", b -> { Modules.toggleEsp();  refresh(); }), 6, 70);
-        espKey  = put(btn(60, "", b -> listen(ModEvents.ESP)), 124, 70);
+        // Boat
+        boatBtn = put(btn(112, 20, "", b -> { Modules.toggleBoat(); refresh(); }), 6, 94);
+        boatKey = put(btn(60, 20, "", b -> listen(ModEvents.BOAT)), 124, 94);
+        put(btn(20, 20, "-", b -> Modules.adjustBoat(-0.1)), 6, 118);
+        put(btn(20, 20, "+", b -> Modules.adjustBoat(0.1)), 164, 118);
 
-        boatBtn = put(btn(112, "", b -> { Modules.toggleBoat(); refresh(); }), 6, 94);
-        boatKey = put(btn(60, "", b -> listen(ModEvents.BOAT)), 124, 94);
+        // X-Ray
+        xrayBtn = put(btn(112, 20, "", b -> { Modules.toggleXray(); refresh(); }), 6, 142);
+        xrayKey = put(btn(60, 20, "", b -> listen(ModEvents.XRAY)), 124, 142);
+        put(btn(20, 20, "-", b -> Xray.adjustRange(-4)), 6, 166);
+        put(btn(20, 20, "+", b -> Xray.adjustRange(4)), 164, 166);
 
-        put(btn(20, "-", b -> Modules.boatSpeed = Mth.clamp(round1(Modules.boatSpeed - 0.1), 0.1, 3.0)), 6, 118);
-        put(btn(20, "+", b -> Modules.boatSpeed = Mth.clamp(round1(Modules.boatSpeed + 0.1), 0.1, 3.0)), 164, 118);
-
-        menuKey = put(btn(60, "", b -> listen(ModEvents.MENU)), 124, 142);
+        // Ores (3 колонки)
+        for (int i = 0; i < Xray.ORES.length; i++) {
+            final Xray.Ore ore = Xray.ORES[i];
+            int col = i % 3, row = i / 3;
+            oreBtns[i] = put(btn(58, 16, "", b -> {
+                ore.enabled = !ore.enabled;
+                Xray.markDirty();
+                refresh();
+            }), 6 + col * 60, 202 + row * 18);
+        }
 
         refresh();
     }
@@ -87,10 +101,16 @@ public class CheatMenuScreen extends Screen {
         flyBtn.setMessage(Component.literal("Fly: " + (Modules.fly ? "ON" : "OFF")));
         espBtn.setMessage(Component.literal("Player ESP: " + (Modules.esp ? "ON" : "OFF")));
         boatBtn.setMessage(Component.literal("Boat Fly: " + (Modules.boatFly ? "ON" : "OFF")));
+        xrayBtn.setMessage(Component.literal("X-Ray: " + (Xray.enabled ? "ON" : "OFF")));
         flyKey.setMessage(keyLabel(ModEvents.FLY));
         espKey.setMessage(keyLabel(ModEvents.ESP));
         boatKey.setMessage(keyLabel(ModEvents.BOAT));
-        menuKey.setMessage(keyLabel(ModEvents.MENU));
+        xrayKey.setMessage(keyLabel(ModEvents.XRAY));
+        for (int i = 0; i < Xray.ORES.length; i++) {
+            Xray.Ore o = Xray.ORES[i];
+            oreBtns[i].setMessage(Component.literal(o.name)
+                    .withStyle(o.enabled ? ChatFormatting.GREEN : ChatFormatting.GRAY));
+        }
     }
 
     private void clampPos() {
@@ -114,9 +134,14 @@ public class CheatMenuScreen extends Screen {
 
         g.drawCenteredString(font, String.format(Locale.ROOT, "Fly speed: %.1f", Modules.flySpeed), px + W / 2, py + 52, 0xFFFFFF);
         g.drawCenteredString(font, String.format(Locale.ROOT, "Boat speed: %.1f", Modules.boatSpeed), px + W / 2, py + 124, 0xFFFFFF);
-        g.drawString(font, "Menu key", px + 8, py + 148, 0xFFFFFF);
-        g.drawString(font, "Click a key box, then press a key", px + 6, py + 168, 0xAAAAAA);
-        g.drawString(font, "ESC = cancel   Ctrl = down in boat", px + 6, py + 176, 0xAAAAAA);
+        g.drawCenteredString(font, "X-Ray range: " + Xray.range, px + W / 2, py + 172, 0xFFFFFF);
+        g.drawString(font, "Ores to find (click):", px + 6, py + 190, 0xFFFFFF);
+
+        String faster = ModEvents.BOAT_FASTER.getTranslatedKeyMessage().getString();
+        String slower = ModEvents.BOAT_SLOWER.getTranslatedKeyMessage().getString();
+        g.drawString(font, "Boat: " + faster + " faster, " + slower + " slower", px + 6, py + 268, 0xAAAAAA);
+        g.drawString(font, "Click a key box, then press a key", px + 6, py + 278, 0xAAAAAA);
+        g.drawString(font, "ESC = cancel   Ctrl = down in boat", px + 6, py + 288, 0xAAAAAA);
 
         super.render(g, mouseX, mouseY, partial);
     }
