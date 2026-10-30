@@ -4,9 +4,9 @@ license="MIT"
 
 [[mods]]
 modId="cheatlab"
-version="1.2.0"
+version="1.3.0"
 displayName="CheatLab"
-description='Client-side test mod: Fly, Player ESP, Boat Fly.'
+description='CheatLab 1.3: Fly, Player ESP, Boat Fly, X-Ray. Menu: Right Shift. Commands: /cheatlab'
 
 [[dependencies.cheatlab]]
 modId="forge"
