@@ -36,7 +36,7 @@ public class ClientTick {
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
     public static void onLogin(ClientPlayerNetworkEvent.LoggingIn e) {
         safe("login", () -> e.getPlayer().displayClientMessage(Component.literal(
-                "[CheatLab] loaded. Right Shift = menu, R = fly, G = ESP, B = boat fly, X = X-Ray"), false));
+                "[CheatLab v1.2] loaded. Right Shift = menu, type /cheatlab for all commands"), false));
     }
 
     // Пока включён Fly, обнуляем обычное управление, чтобы движение шло только от мода
@@ -72,6 +72,10 @@ public class ClientTick {
     }
 
     private static void keys(Minecraft mc) {
+        if (Modules.openMenu && mc.screen == null) {
+            Modules.openMenu = false;
+            mc.setScreen(new CheatMenuScreen());
+        }
         while (ModEvents.MENU.consumeClick()) {
             if (mc.screen == null) mc.setScreen(new CheatMenuScreen());
         }

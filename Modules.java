@@ -13,6 +13,7 @@ import java.util.Set;
 
 public final class Modules {
     public static boolean fly, esp, boatFly;
+    public static boolean openMenu; // команда /cheatlab menu открывает меню на следующем тике
     public static double flySpeed = 0.6;   // блоков за тик
     public static double boatSpeed = 0.9;  // блоков за тик
 
@@ -34,6 +35,15 @@ public final class Modules {
         Xray.markDirty();
         if (!Xray.enabled) Xray.clear();
         msg("X-Ray", Xray.enabled);
+    }
+
+    public static void setFlySpeed(double v) {
+        flySpeed = Mth.clamp(round1(v), 0.1, 3.0);
+    }
+
+    public static void setBoatSpeed(double v) {
+        boatSpeed = Mth.clamp(round1(v), 0.1, 5.0);
+        showBoatSpeed();
     }
 
     public static void adjustFly(double d) {

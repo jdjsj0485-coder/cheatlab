@@ -63,6 +63,11 @@ public final class Xray {
 
     public static void clear() { hits = List.of(); }
 
+    public static void setRange(int v) {
+        range = Math.max(8, Math.min(24, v));
+        markDirty();
+    }
+
     public static void adjustRange(int delta) {
         range = Math.max(8, Math.min(24, range + delta));
         markDirty();
