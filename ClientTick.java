@@ -36,7 +36,7 @@ public class ClientTick {
     @SubscribeEvent(priority = EventPriority.LOWEST, receiveCanceled = true)
     public static void onLogin(ClientPlayerNetworkEvent.LoggingIn e) {
         safe("login", () -> e.getPlayer().displayClientMessage(Component.literal(
-                "[CheatLab v1.3] loaded. Right Shift = menu, type /cheatlab for all commands"), false));
+                "[CheatLab v1.2] loaded. Right Shift = menu, type /cheatlab for all commands"), false));
     }
 
     // Пока включён Fly, обнуляем обычное управление, чтобы движение шло только от мода
